@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Socket Test</title>
+</head>
+<body>
+  <h1>Queue Updates</h1>
+
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script>
+    const socket = io("http://localhost:5001");
+
+    socket.emit("joinQueueRoom", "hospital1");
+
+    socket.on("queueUpdated", (data) => {
+      console.log("Queue Updated:", data);
+    });
+
+    socket.on("tokenCalled", (data) => {
+      console.log("Token Called:", data);
+    });
+  </script>
+</body>
+</html>
