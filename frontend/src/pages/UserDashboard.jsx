@@ -1,105 +1,153 @@
+// ─── STEP 6a: Replace frontend/src/pages/UserDashboard.jsx ───
 import React, { useEffect, useState } from "react";
 import socket from "../socket/socket";
 import Navbar from "../components/Navbar";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 const UserDashboard = () => {
   const [tokenData, setTokenData] = useState(null);
   const [currentToken, setCurrentToken] = useState(null);
-  const [livePosition, setLivePosition] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem("tokenData"));
     if (!saved) return navigate("/");
     setTokenData(saved);
-    setLivePosition(saved.position);
 
     socket.emit("joinQueueRoom", saved.queueId);
     socket.on("queueUpdated", (data) => {
-      if (data.queueId === saved.queueId) setLivePosition(data.position);
+      if (data.queueId === saved.queueId) {
+        setTokenData(prev => prev ? { ...prev, position: data.position ?? prev.position } : prev);
+      }
     });
     socket.on("tokenCalled", (data) => {
       setCurrentToken(data.tokenNumber);
-      if (saved.tokenNumber > 1) {
-        setTokenData(prev => prev ? { ...prev, position: Math.max(1, prev.position - 1), eta: Math.max(0, prev.eta - 5) } : prev);
-      }
+      setTokenData(prev => prev ? { ...prev, position: Math.max(1, prev.position - 1), eta: Math.max(0, prev.eta - 5) } : prev);
     });
     return () => { socket.off("queueUpdated"); socket.off("tokenCalled"); };
   }, []);
 
   if (!tokenData) return null;
 
-  const progress = Math.max(0, 100 - ((tokenData.position - 1) / 10) * 100);
-  const isNext = tokenData.tokenNumber === (currentToken + 1);
+  const progress = Math.min(100, Math.max(0, 100 - ((tokenData.position - 1) / 10) * 100));
+  const isNext = currentToken && tokenData.tokenNumber === (currentToken + 1);
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--bg-primary)" }}>
+    <div className="page">
       <Navbar />
-      <div className="max-w-lg mx-auto px-4 py-10 animate-slide-up">
-        <h2 className="text-2xl font-bold mb-6">Your Queue Status</h2>
+      <div style={{ maxWidth: "560px", margin: "0 auto", padding: "36px 20px" }} className="animate-slide-up">
 
-        {/* Token Card */}
-        <div className="p-8 rounded-2xl border mb-6 text-center glow-purple relative overflow-hidden"
-          style={{ background: "var(--bg-card)", borderColor: "#6366f1" }}>
-          <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl"
-            style={{ background: "linear-gradient(90deg, #6366f1, #8b5cf6)" }} />
+        {/* Breadcrumb */}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "24px", fontSize: "13px", color: "var(--text-muted)" }}>
+          <Link to="/" style={{ color: "var(--accent)", textDecoration: "none", fontWeight: "500" }}>Home</Link>
+          <span>›</span>
+          <span>Queue Status</span>
+        </div>
 
-          <p className="text-sm font-medium mb-2" style={{ color: "var(--text-secondary)" }}>YOUR TOKEN</p>
-          <p className="text-7xl font-black mono gradient-text">{String(tokenData.tokenNumber).padStart(3, "0")}</p>
+        <h1 style={{ fontFamily: "'Syne',sans-serif", fontWeight: "800", fontSize: "1.6rem", color: "var(--text-primary)", marginBottom: "24px" }}>
+          Your Queue Status
+        </h1>
 
-          <div className="grid grid-cols-2 gap-4 mt-6">
-            <div className="p-4 rounded-xl" style={{ background: "var(--bg-elevated)" }}>
-              <p className="text-2xl font-bold" style={{ color: "#6366f1" }}>{tokenData.position}</p>
-              <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>Position in queue</p>
-            </div>
-            <div className="p-4 rounded-xl" style={{ background: "var(--bg-elevated)" }}>
-              <p className="text-2xl font-bold" style={{ color: "#a78bfa" }}>{tokenData.eta}m</p>
-              <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>Estimated wait</p>
-            </div>
+        {/* Token card */}
+        <div style={{
+          background: "white", border: "2px solid #c7d2fe",
+          borderRadius: "20px", padding: "32px 28px", marginBottom: "16px",
+          boxShadow: "0 0 0 4px rgba(26,86,219,.06), var(--shadow-md)",
+          textAlign: "center", position: "relative", overflow: "hidden",
+        }}>
+          {/* Top accent bar */}
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "4px", background: "linear-gradient(90deg,#1a56db,#0891b2)" }} />
+
+          <p style={{ fontSize: "11px", fontWeight: "700", letterSpacing: ".1em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: "10px" }}>
+            Your Token
+          </p>
+          <div style={{
+            fontFamily: "'JetBrains Mono',monospace", fontSize: "5rem", fontWeight: "700",
+            color: "var(--accent)", lineHeight: 1,
+            animation: "token-flash 3s ease-in-out infinite",
+          }}>
+            {String(tokenData.tokenNumber).padStart(3, "0")}
+          </div>
+
+          {/* Stats row */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginTop: "24px" }}>
+            {[
+              { label: "Position in queue", value: tokenData.position, color: "#1a56db", bg: "#eef2ff" },
+              { label: "Estimated wait",     value: `${tokenData.eta}m`, color: "#0891b2", bg: "#ecfeff" },
+            ].map(({ label, value, color, bg }) => (
+              <div key={label} style={{ padding: "14px 16px", borderRadius: "12px", background: bg }}>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: "1.8rem", fontWeight: "800", color }}>{value}</div>
+                <div style={{ fontSize: "11px", color: "var(--text-secondary)", marginTop: "3px" }}>{label}</div>
+              </div>
+            ))}
           </div>
 
           {/* Progress bar */}
-          <div className="mt-6">
-            <div className="flex justify-between text-xs mb-1.5" style={{ color: "var(--text-secondary)" }}>
-              <span>Progress</span><span>{Math.round(progress)}%</span>
+          <div style={{ marginTop: "20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--text-muted)", marginBottom: "6px" }}>
+              <span>Queue progress</span>
+              <span style={{ fontWeight: "600", color: "var(--accent)" }}>{Math.round(progress)}%</span>
             </div>
-            <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-elevated)" }}>
-              <div className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${progress}%`, background: "linear-gradient(90deg, #6366f1, #8b5cf6)" }} />
+            <div style={{ height: "6px", background: "#e2e8f0", borderRadius: "100px", overflow: "hidden" }}>
+              <div style={{
+                height: "100%", borderRadius: "100px",
+                background: "linear-gradient(90deg,#1a56db,#0891b2)",
+                width: `${progress}%`, transition: "width .5s ease",
+              }} />
             </div>
           </div>
         </div>
 
-        {/* Now Serving */}
+        {/* Now serving alert */}
         {currentToken && (
-          <div className="p-5 rounded-2xl border flex items-center gap-4 mb-4"
-            style={{ background: "rgba(34,197,94,0.05)", borderColor: "#22c55e" }}>
-            <div className="relative">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
-                style={{ background: "rgba(34,197,94,0.1)" }}>🔔</div>
-              <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full animate-ping"
-                style={{ background: "#22c55e" }} />
+          <div style={{
+            background: isNext ? "#f0fdf4" : "#f8fafc",
+            border: `1px solid ${isNext ? "#86efac" : "var(--border)"}`,
+            borderRadius: "14px", padding: "16px 20px",
+            display: "flex", alignItems: "center", gap: "14px", marginBottom: "12px",
+          }}>
+            <div style={{ position: "relative" }}>
+              <div style={{
+                width: "44px", height: "44px", borderRadius: "12px",
+                background: isNext ? "#dcfce7" : "#eef2ff",
+                display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.2rem",
+              }}>
+                🔔
+              </div>
+              <span style={{
+                position: "absolute", top: "-3px", right: "-3px", width: "10px", height: "10px",
+                borderRadius: "50%", background: "#16a34a", border: "2px solid white",
+              }} />
             </div>
-            <div>
-              <p className="font-bold" style={{ color: "#22c55e" }}>Now Serving</p>
-              <p className="text-2xl font-black mono">{String(currentToken).padStart(3, "0")}</p>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: "11px", fontWeight: "700", color: "#16a34a", letterSpacing: ".06em", textTransform: "uppercase" }}>Now Serving</div>
+              <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: "1.6rem", fontWeight: "700", color: "var(--text-primary)" }}>
+                {String(currentToken).padStart(3, "0")}
+              </div>
             </div>
             {isNext && (
-              <div className="ml-auto px-3 py-1.5 rounded-lg text-sm font-bold animate-pulse"
-                style={{ background: "rgba(34,197,94,0.2)", color: "#22c55e" }}>
+              <div style={{ padding: "6px 12px", borderRadius: "8px", background: "#16a34a", color: "white", fontSize: "12px", fontWeight: "700" }}>
                 You're next!
               </div>
             )}
           </div>
         )}
 
-        <button onClick={() => { localStorage.removeItem("tokenData"); navigate("/"); }}
-          className="w-full py-3 rounded-xl text-sm font-medium transition-all hover:opacity-80"
-          style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
-          Leave Queue
-        </button>
+        {/* Actions */}
+        <div style={{ display: "flex", gap: "10px" }}>
+          <Link to="/my-appointments" className="btn btn-outline" style={{ flex: 1, justifyContent: "center" }}>
+            📋 My Appointments
+          </Link>
+          <button onClick={() => { localStorage.removeItem("tokenData"); navigate("/"); }}
+            className="btn btn-ghost" style={{ flex: 1 }}>
+            Leave Queue
+          </button>
+        </div>
       </div>
+
+      <style>{`
+        @keyframes token-flash { 0%,100%{transform:scale(1)} 50%{transform:scale(1.02)} }
+      `}</style>
     </div>
   );
 };

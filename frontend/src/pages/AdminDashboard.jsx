@@ -1,20 +1,34 @@
+// ─── STEP 5: Replace frontend/src/pages/AdminDashboard.jsx ───
 import React, { useState, useEffect } from "react";
 import { callNext, getAdminAnalytics } from "../services/api";
 import Navbar from "../components/Navbar";
 import socket from "../socket/socket";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import toast from "react-hot-toast";
+import { Link } from "react-router-dom";
 
 const QUEUE_ID = "hospital1";
 
-const StatCard = ({ icon, label, value, color }) => (
-  <div className="p-5 rounded-2xl border" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-    <div className="flex items-center justify-between mb-3">
-      <span className="text-2xl">{icon}</span>
-      <span className="text-xs px-2 py-1 rounded-full font-medium" style={{ background: `${color}20`, color }}>live</span>
+const StatCard = ({ icon, label, value, color, bg }) => (
+  <div style={{
+    background: "white", border: "1px solid var(--border)",
+    borderRadius: "16px", padding: "22px 20px",
+    boxShadow: "var(--shadow-sm)",
+    transition: "box-shadow .2s, transform .2s",
+  }}
+    onMouseEnter={e => { e.currentTarget.style.boxShadow = "var(--shadow-md)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
+    onMouseLeave={e => { e.currentTarget.style.boxShadow = "var(--shadow-sm)"; e.currentTarget.style.transform = "none"; }}
+  >
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
+      <div style={{ width: "40px", height: "40px", borderRadius: "10px", background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem" }}>
+        {icon}
+      </div>
+      <span style={{ fontSize: "11px", fontWeight: "600", padding: "3px 9px", borderRadius: "100px", background: bg, color }}>
+        LIVE
+      </span>
     </div>
-    <p className="text-3xl font-black mono" style={{ color }}>{value}</p>
-    <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{label}</p>
+    <div style={{ fontFamily: "'Syne',sans-serif", fontSize: "2rem", fontWeight: "800", color, lineHeight: 1 }}>{value}</div>
+    <div style={{ fontSize: "13px", color: "var(--text-secondary)", marginTop: "5px" }}>{label}</div>
   </div>
 );
 
@@ -22,7 +36,7 @@ const AdminDashboard = () => {
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const fetch = async () => {
+  const fetchData = async () => {
     try {
       const res = await getAdminAnalytics(QUEUE_ID);
       setAnalytics(res.data.data);
@@ -30,10 +44,13 @@ const AdminDashboard = () => {
   };
 
   useEffect(() => {
-    fetch();
-    socket.on("queueUpdated", fetch);
-    socket.on("tokenCalled", fetch);
-    return () => { socket.off("queueUpdated", fetch); socket.off("tokenCalled", fetch); };
+    fetchData();
+    socket.on("queueUpdated", fetchData);
+    socket.on("tokenCalled", fetchData);
+    return () => {
+      socket.off("queueUpdated", fetchData);
+      socket.off("tokenCalled", fetchData);
+    };
   }, []);
 
   const handleNext = async () => {
@@ -45,7 +62,7 @@ const AdminDashboard = () => {
       } else {
         toast("Queue is empty", { icon: "ℹ️" });
       }
-      fetch();
+      fetchData();
     } catch {
       toast.error("Failed to call next");
     } finally {
@@ -54,60 +71,131 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--bg-primary)" }}>
+    <div className="page">
       <Navbar />
-      <div className="max-w-4xl mx-auto px-4 py-10 animate-slide-up">
-        <div className="flex items-center justify-between mb-8">
+      <div className="page-inner-wide animate-slide-up">
+
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "28px", flexWrap: "wrap", gap: "16px" }}>
           <div>
-            <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-            <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>City Hospital — Real-time queue control</p>
+            <span className="section-label">Admin Panel</span>
+            <h1 style={{ fontFamily: "'Syne',sans-serif", fontSize: "1.8rem", fontWeight: "800", color: "var(--text-primary)", margin: 0 }}>
+              Queue Dashboard
+            </h1>
+            <p style={{ color: "var(--text-secondary)", marginTop: "4px", fontSize: "14px" }}>City Hospital — Real-time queue control</p>
           </div>
-          <button onClick={handleNext} disabled={loading}
-            className="px-6 py-3 rounded-xl font-bold transition-all hover:opacity-90 active:scale-95 disabled:opacity-50 flex items-center gap-2"
-            style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff" }}>
-            {loading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : "📢"}
-            Call Next Token
-          </button>
+
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            <Link to="/admin/checkin" className="btn btn-ghost">
+              🔍 Check-In Patient
+            </Link>
+            <Link to="/admin/departments" className="btn btn-outline">
+              🏥 Departments
+            </Link>
+            <button onClick={handleNext} disabled={loading} className="btn btn-primary btn-lg">
+              {loading ? <><span className="spinner" style={{ width: "15px", height: "15px" }} /> Calling...</> : "📢 Call Next Token"}
+            </button>
+          </div>
         </div>
+
+        {/* Loading */}
+        {!analytics && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "200px", gap: "12px" }}>
+            <span className="spinner spinner-dark" />
+            <span style={{ color: "var(--text-secondary)", fontSize: "14px" }}>Loading analytics...</span>
+          </div>
+        )}
 
         {analytics && (
           <>
-            {/* Stats Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <StatCard icon="⏳" label="Currently Waiting" value={analytics.currentWaiting} color="#6366f1" />
-              <StatCard icon="✅" label="Served Today" value={analytics.servedToday} color="#22c55e" />
-              <StatCard icon="🏆" label="Total Served" value={analytics.totalServed} color="#f59e0b" />
-              <StatCard icon="⏱️" label="Avg Wait (min)" value={analytics.avgWaitTime} color="#a78bfa" />
+            {/* Stat cards */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "16px", marginBottom: "24px" }} className="stats-grid stagger">
+              <StatCard icon="⏳" label="Currently Waiting" value={analytics.currentWaiting} color="#1a56db" bg="#eef2ff" />
+              <StatCard icon="✅" label="Served Today"      value={analytics.servedToday}    color="#16a34a" bg="#f0fdf4" />
+              <StatCard icon="🏆" label="Total Served"      value={analytics.totalServed}    color="#d97706" bg="#fffbeb" />
+              <StatCard icon="⏱️" label="Avg Wait (min)"    value={analytics.avgWaitTime}    color="#0891b2" bg="#ecfeff" />
             </div>
 
-            {/* Chart */}
-            <div className="p-6 rounded-2xl border" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
-              <h3 className="font-bold mb-5">Last 7 Days — Tokens Served</h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={analytics.weekData} barSize={28}>
-                  <XAxis dataKey="date" stroke="#374151" tick={{ fill: "#6b7280", fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <YAxis stroke="#374151" tick={{ fill: "#6b7280", fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <Tooltip
-                    contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, color: "#f0f0ff" }}
-                    cursor={{ fill: "rgba(99,102,241,0.05)" }}
-                  />
-                  <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                    {analytics.weekData.map((_, i) => (
-                      <Cell key={i} fill={i === analytics.weekData.length - 1 ? "#6366f1" : "#1e1e35"} />
+            {/* Chart + Quick actions */}
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "16px" }} className="chart-grid">
+
+              {/* Bar chart */}
+              <div style={{ background: "white", border: "1px solid var(--border)", borderRadius: "16px", padding: "24px", boxShadow: "var(--shadow-sm)" }}>
+                <h3 style={{ fontFamily: "'Syne',sans-serif", fontWeight: "700", fontSize: "15px", color: "var(--text-primary)", marginBottom: "20px" }}>
+                  Tokens Served — Last 7 Days
+                </h3>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={analytics.weekData} barSize={28}>
+                    <XAxis dataKey="date" stroke="#e2e8f0" tick={{ fill: "#94a3b8", fontSize: 12 }} axisLine={false} tickLine={false} />
+                    <YAxis stroke="#e2e8f0" tick={{ fill: "#94a3b8", fontSize: 12 }} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      contentStyle={{ background: "white", border: "1px solid var(--border)", borderRadius: "10px", color: "var(--text-primary)", fontSize: "13px" }}
+                      cursor={{ fill: "rgba(26,86,219,.04)" }}
+                    />
+                    <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                      {analytics.weekData.map((_, i) => (
+                        <Cell key={i} fill={i === analytics.weekData.length - 1 ? "#1a56db" : "#e2e8f0"} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Quick links */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <div style={{ background: "white", border: "1px solid var(--border)", borderRadius: "16px", padding: "20px", boxShadow: "var(--shadow-sm)" }}>
+                  <h3 style={{ fontFamily: "'Syne',sans-serif", fontWeight: "700", fontSize: "14px", color: "var(--text-primary)", marginBottom: "14px" }}>
+                    Quick Actions
+                  </h3>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    {[
+                      { to: "/admin/checkin",    icon: "🔍", label: "Patient Check-In",   desc: "Scan MRN or token" },
+                      { to: "/admin/departments",icon: "🏥", label: "Manage Departments", desc: "Doctors & departments" },
+                      { to: "/queue-display",    icon: "📺", label: "TV Queue Display",   desc: "Open lobby screen" },
+                    ].map(({ to, icon, label, desc }) => (
+                      <Link key={to} to={to} style={{
+                        display: "flex", alignItems: "center", gap: "12px",
+                        padding: "12px", borderRadius: "10px",
+                        background: "var(--bg-elevated)", border: "1px solid var(--border)",
+                        textDecoration: "none", transition: "all .15s",
+                      }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = "#c7d2fe"; e.currentTarget.style.background = "#eef2ff"; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "var(--bg-elevated)"; }}
+                      >
+                        <span style={{ fontSize: "1.2rem" }}>{icon}</span>
+                        <div>
+                          <div style={{ fontSize: "13px", fontWeight: "600", color: "var(--text-primary)" }}>{label}</div>
+                          <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>{desc}</div>
+                        </div>
+                      </Link>
                     ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Queue status pill */}
+                <div style={{ background: analytics.currentWaiting > 0 ? "#f0fdf4" : "var(--bg-elevated)", border: `1px solid ${analytics.currentWaiting > 0 ? "#bbf7d0" : "var(--border)"}`, borderRadius: "16px", padding: "16px", textAlign: "center" }}>
+                  <div style={{ fontSize: "2rem", fontWeight: "800", fontFamily: "'Syne',sans-serif", color: analytics.currentWaiting > 0 ? "#16a34a" : "var(--text-muted)" }}>
+                    {analytics.currentWaiting > 0 ? "🟢 Active" : "⚪ Empty"}
+                  </div>
+                  <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: "4px" }}>Queue Status</div>
+                </div>
+              </div>
             </div>
           </>
         )}
-
-        {!analytics && (
-          <div className="flex items-center justify-center h-40">
-            <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-          </div>
-        )}
       </div>
+
+      <style>{`
+        .stats-grid { grid-template-columns: repeat(4,1fr); }
+        .chart-grid { grid-template-columns: 2fr 1fr; }
+        @media(max-width:860px){
+          .stats-grid { grid-template-columns: repeat(2,1fr); }
+          .chart-grid { grid-template-columns: 1fr; }
+        }
+        @media(max-width:480px){
+          .stats-grid { grid-template-columns: repeat(2,1fr); }
+        }
+      `}</style>
     </div>
   );
 };

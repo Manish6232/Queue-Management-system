@@ -1,54 +1,97 @@
+// ─── STEP 7: Replace frontend/src/pages/MyAppointments.jsx ───
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import API from "../services/api";
 import toast from "react-hot-toast";
 
-const statusColors = {
-  booked:     { bg: "rgba(99,102,241,0.1)",  text: "#818cf8",  label: "Booked" },
-  "checked-in":{ bg: "rgba(245,158,11,0.1)", text: "#f59e0b",  label: "Checked In" },
-  waiting:    { bg: "rgba(245,158,11,0.1)",  text: "#f59e0b",  label: "Waiting" },
-  serving:    { bg: "rgba(34,197,94,0.1)",   text: "#22c55e",  label: "Serving" },
-  completed:  { bg: "rgba(34,197,94,0.1)",   text: "#22c55e",  label: "Completed" },
-  cancelled:  { bg: "rgba(239,68,68,0.1)",   text: "#ef4444",  label: "Cancelled" },
+const statusMap = {
+  booked:      { label: "Booked",     cls: "badge-blue" },
+  "checked-in":{ label: "Checked In", cls: "badge-amber" },
+  waiting:     { label: "Waiting",    cls: "badge-amber" },
+  serving:     { label: "In Progress",cls: "badge-teal" },
+  completed:   { label: "Completed",  cls: "badge-green" },
+  cancelled:   { label: "Cancelled",  cls: "badge-red" },
 };
 
 const QRModal = ({ appointment, onClose }) => (
-  <div style={{
-    position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
-    display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100,
-  }} onClick={onClose}>
-    <div style={{
-      background: "var(--bg-card)", border: "1px solid var(--border)",
-      borderRadius: "20px", padding: "32px", textAlign: "center",
-      maxWidth: "320px", width: "90%",
-    }} onClick={e => e.stopPropagation()}>
-      <h3 style={{ color: "var(--text-primary)", margin: "0 0 8px", fontSize: "18px" }}>
-        Your QR Code
-      </h3>
-      <p style={{ color: "var(--text-secondary)", fontSize: "13px", margin: "0 0 20px" }}>
-        Show this at the reception counter
-      </p>
+  <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: "20px" }}>
+    <div onClick={e => e.stopPropagation()} style={{ background: "white", borderRadius: "20px", padding: "32px", width: "100%", maxWidth: "320px", textAlign: "center", boxShadow: "var(--shadow-lg)" }}>
+      <h3 style={{ fontFamily: "'Syne',sans-serif", fontWeight: "700", fontSize: "18px", marginBottom: "6px", color: "var(--text-primary)" }}>Your QR Code</h3>
+      <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginBottom: "20px" }}>Show this at the reception counter</p>
       {appointment.qrCode ? (
-        <img src={appointment.qrCode} alt="QR Code" style={{ width: "200px", height: "200px", borderRadius: "12px" }} />
+        <img src={appointment.qrCode} alt="QR" style={{ width: "180px", height: "180px", borderRadius: "12px", border: "1px solid var(--border)" }} />
       ) : (
-        <div style={{ width: "200px", height: "200px", background: "var(--bg-elevated)", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto", flexDirection: "column", gap: "8px" }}>
-          <span style={{ fontSize: "40px" }}>🔲</span>
-          <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>QR not available</span>
+        <div style={{ width: "180px", height: "180px", background: "var(--bg-elevated)", borderRadius: "12px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", margin: "0 auto", gap: "8px" }}>
+          <span style={{ fontSize: "2.5rem" }}>🔲</span>
+          <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>QR not available</span>
         </div>
       )}
-      <div style={{ marginTop: "20px", padding: "12px", background: "var(--bg-elevated)", borderRadius: "10px" }}>
-        <div style={{ fontSize: "24px", fontWeight: "800", color: "#6366f1", fontFamily: "monospace" }}>
-          {appointment.mrn || `TOKEN-${String(appointment.tokenNumber).padStart(3,"0")}`}
+      <div style={{ marginTop: "18px", padding: "12px", background: "var(--bg-elevated)", borderRadius: "10px" }}>
+        <div style={{ fontFamily: "'JetBrains Mono',monospace", fontWeight: "700", fontSize: "1.4rem", color: "var(--accent)" }}>
+          {appointment.mrn || `TOKEN-${String(appointment.tokenNumber || 0).padStart(3, "0")}`}
         </div>
-        <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: "4px" }}>Medical Record Number</div>
+        <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "3px" }}>Medical Record Number</div>
       </div>
-      <button onClick={onClose} style={{ marginTop: "20px", padding: "10px 32px", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "none", borderRadius: "10px", color: "#fff", cursor: "pointer", fontSize: "14px", fontWeight: "600" }}>
-        Close
-      </button>
+      <button onClick={onClose} className="btn btn-primary" style={{ marginTop: "20px", width: "100%" }}>Close</button>
     </div>
   </div>
 );
+
+const ApptCard = ({ appt, onCancel, onQR, onFeedback }) => {
+  const s = statusMap[appt.status] || statusMap.booked;
+  return (
+    <div style={{
+      background: "white", border: "1px solid var(--border)",
+      borderRadius: "16px", padding: "20px 22px",
+      boxShadow: "var(--shadow-sm)", transition: "box-shadow .2s",
+    }}
+      onMouseEnter={e => e.currentTarget.style.boxShadow = "var(--shadow-md)"}
+      onMouseLeave={e => e.currentTarget.style.boxShadow = "var(--shadow-sm)"}
+    >
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px", marginBottom: "14px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <div style={{
+            width: "44px", height: "44px", borderRadius: "12px",
+            background: "var(--accent-light)", display: "flex", alignItems: "center", justifyContent: "center",
+            fontFamily: "'JetBrains Mono',monospace", fontWeight: "700", fontSize: "13px", color: "var(--accent)",
+          }}>
+            #{String(appt.tokenNumber || "—").padStart(3, "0")}
+          </div>
+          <div>
+            <div style={{ fontWeight: "600", fontSize: "15px", color: "var(--text-primary)" }}>{appt.patientName}</div>
+            <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
+              {appt.department?.name || "Department"} {appt.doctor && `· Dr. ${appt.doctor.name}`}
+            </div>
+          </div>
+        </div>
+        <span className={`badge ${s.cls}`}>{s.label}</span>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "16px" }}>
+        {[
+          { icon: "📅", label: "Date", value: appt.appointmentDate ? new Date(appt.appointmentDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—" },
+          { icon: "🕐", label: "Time", value: appt.appointmentTime || "—" },
+        ].map(({ icon, label, value }) => (
+          <div key={label} style={{ padding: "10px 12px", background: "var(--bg-elevated)", borderRadius: "10px" }}>
+            <div style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "3px" }}>{icon} {label}</div>
+            <div style={{ fontSize: "13px", fontWeight: "600", color: "var(--text-primary)" }}>{value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+        <button onClick={() => onQR(appt)} className="btn btn-ghost btn-sm">🔲 QR Code</button>
+        {appt.status === "completed" && !appt.feedback && (
+          <button onClick={() => onFeedback(appt._id)} className="btn btn-sm" style={{ background: "#fffbeb", color: "#b45309", border: "1px solid #fde68a" }}>⭐ Leave Feedback</button>
+        )}
+        {["booked"].includes(appt.status) && (
+          <button onClick={() => onCancel(appt._id)} className="btn btn-danger btn-sm">Cancel</button>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const MyAppointments = () => {
   const [appointments, setAppointments] = useState([]);
@@ -59,7 +102,7 @@ const MyAppointments = () => {
 
   useEffect(() => {
     API.get("/appointments/my")
-      .then(r => setAppointments(r.data.data))
+      .then(r => setAppointments(r.data.data || []))
       .catch(() => toast.error("Failed to load appointments"))
       .finally(() => setLoading(false));
   }, []);
@@ -68,142 +111,79 @@ const MyAppointments = () => {
     if (!window.confirm("Cancel this appointment?")) return;
     try {
       await API.patch(`/appointments/${id}/cancel`);
-      setAppointments(prev => prev.map(a => a._id === id ? { ...a, status: "cancelled" } : a));
       toast.success("Appointment cancelled");
-    } catch {
-      toast.error("Failed to cancel");
-    }
+      setAppointments(prev => prev.map(a => a._id === id ? { ...a, status: "cancelled" } : a));
+    } catch { toast.error("Failed to cancel"); }
   };
 
-  const filtered = appointments.filter(a => filter === "all" || a.status === filter);
+  const filters = ["all", "booked", "waiting", "completed", "cancelled"];
+  const filtered = filter === "all" ? appointments : appointments.filter(a => a.status === filter);
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg-primary)", fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="page">
       <Navbar />
-      {qrAppt && <QRModal appointment={qrAppt} onClose={() => setQrAppt(null)} />}
-
-      <div style={{ maxWidth: "720px", margin: "0 auto", padding: "32px 16px" }}>
+      <div className="page-inner animate-slide-up">
 
         {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px", flexWrap: "wrap", gap: "12px" }}>
           <div>
-            <h1 style={{ fontSize: "26px", fontWeight: "700", color: "var(--text-primary)", margin: 0 }}>My Appointments</h1>
-            <p style={{ color: "var(--text-secondary)", marginTop: "4px", fontSize: "14px" }}>{appointments.length} total appointments</p>
+            <span className="section-label">Your History</span>
+            <h1 style={{ fontFamily: "'Syne',sans-serif", fontWeight: "800", fontSize: "1.8rem", color: "var(--text-primary)", margin: 0 }}>My Appointments</h1>
           </div>
-          <button onClick={() => navigate("/book")}
-            style={{ padding: "10px 20px", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "none", borderRadius: "10px", color: "#fff", cursor: "pointer", fontSize: "14px", fontWeight: "600" }}>
-            + Book New
-          </button>
+          <Link to="/book" className="btn btn-primary">📅 Book New</Link>
         </div>
 
         {/* Filter tabs */}
-        <div style={{ display: "flex", gap: "8px", marginBottom: "20px", overflowX: "auto", paddingBottom: "4px" }}>
-          {["all","booked","waiting","serving","completed","cancelled"].map(f => (
-            <button key={f} onClick={() => setFilter(f)}
-              style={{
-                padding: "7px 16px", borderRadius: "20px", cursor: "pointer", whiteSpace: "nowrap",
-                fontSize: "13px", fontWeight: filter === f ? "600" : "400",
-                background: filter === f ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "var(--bg-elevated)",
-                border: `1px solid ${filter === f ? "#6366f1" : "var(--border)"}`,
-                color: filter === f ? "#fff" : "var(--text-secondary)",
-                textTransform: "capitalize",
-              }}>
-              {f === "all" ? "All" : statusColors[f]?.label}
+        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "24px", padding: "6px", background: "white", borderRadius: "12px", border: "1px solid var(--border)" }}>
+          {filters.map(f => (
+            <button key={f} onClick={() => setFilter(f)} style={{
+              padding: "7px 16px", borderRadius: "8px", border: "none", cursor: "pointer",
+              fontSize: "13px", fontWeight: "500", fontFamily: "'DM Sans',sans-serif",
+              background: filter === f ? "var(--accent)" : "transparent",
+              color: filter === f ? "white" : "var(--text-secondary)",
+              transition: "all .15s",
+            }}>
+              {f.charAt(0).toUpperCase() + f.slice(1)}
+              {f !== "all" && <span style={{ marginLeft: "5px", fontSize: "11px", opacity: .8 }}>({appointments.filter(a => a.status === f).length})</span>}
+              {f === "all" && <span style={{ marginLeft: "5px", fontSize: "11px", opacity: .8 }}>({appointments.length})</span>}
             </button>
           ))}
         </div>
 
         {/* List */}
-        {loading ? (
-          <div style={{ textAlign: "center", padding: "60px", color: "var(--text-secondary)" }}>
-            <div style={{ width: "32px", height: "32px", border: "3px solid #6366f1", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 12px" }} />
-            Loading...
-          </div>
-        ) : filtered.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "60px", background: "var(--bg-card)", borderRadius: "16px", border: "1px solid var(--border)" }}>
-            <div style={{ fontSize: "48px", marginBottom: "12px" }}>📋</div>
-            <p style={{ color: "var(--text-primary)", fontWeight: "600", margin: "0 0 6px" }}>No appointments found</p>
-            <p style={{ color: "var(--text-secondary)", fontSize: "14px", margin: "0 0 20px" }}>
-              {filter === "all" ? "You haven't booked any appointments yet" : `No ${filter} appointments`}
-            </p>
-            <button onClick={() => navigate("/book")}
-              style={{ padding: "10px 24px", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "none", borderRadius: "10px", color: "#fff", cursor: "pointer", fontSize: "14px", fontWeight: "600" }}>
-              Book Appointment
-            </button>
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            {filtered.map(appt => {
-              const sc = statusColors[appt.status] || statusColors.booked;
-              return (
-                <div key={appt._id} style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "16px", padding: "20px", transition: "border-color 0.2s" }}>
-                  {/* Top row */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "14px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-                      {/* Token badge */}
-                      <div style={{ width: "52px", height: "52px", borderRadius: "12px", background: "rgba(99,102,241,0.1)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                        <div style={{ fontSize: "18px", fontWeight: "900", color: "#6366f1", fontFamily: "monospace", lineHeight: 1 }}>
-                          {String(appt.tokenNumber || "?").padStart(3,"0")}
-                        </div>
-                        <div style={{ fontSize: "9px", color: "#818cf8", marginTop: "2px" }}>TOKEN</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: "16px", fontWeight: "600", color: "var(--text-primary)" }}>{appt.patientName}</div>
-                        <div style={{ fontSize: "13px", color: "#818cf8", marginTop: "2px" }}>
-                          {appt.departmentId?.name || "Department"}
-                        </div>
-                        {appt.doctorId && (
-                          <div style={{ fontSize: "12px", color: "var(--text-secondary)", marginTop: "2px" }}>
-                            👨‍⚕️ {appt.doctorId.name}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <span style={{ padding: "4px 12px", borderRadius: "20px", fontSize: "12px", fontWeight: "600", background: sc.bg, color: sc.text }}>
-                      {sc.label}
-                    </span>
-                  </div>
-
-                  {/* Details row */}
-                  <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginBottom: "16px" }}>
-                    {[
-                      { icon: "📅", text: appt.appointmentDate ? new Date(appt.appointmentDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "N/A" },
-                      { icon: "⏰", text: appt.appointmentTime || "N/A" },
-                      { icon: "🆔", text: appt.mrn || `#${appt._id?.slice(-6)}` },
-                    ].map((d, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span style={{ fontSize: "13px" }}>{d.icon}</span>
-                        <span style={{ fontSize: "13px", color: "var(--text-secondary)" }}>{d.text}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Actions */}
-                  <div style={{ display: "flex", gap: "8px", borderTop: "1px solid var(--border)", paddingTop: "14px" }}>
-                    <button onClick={() => setQrAppt(appt)}
-                      style={{ flex: 1, padding: "9px", borderRadius: "8px", background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.3)", color: "#818cf8", cursor: "pointer", fontSize: "13px", fontWeight: "600" }}>
-                      🔲 Show QR
-                    </button>
-                    {appt.status === "completed" && !appt.feedback?.rating && (
-                      <button onClick={() => navigate(`/feedback/${appt._id}`)}
-                        style={{ flex: 1, padding: "9px", borderRadius: "8px", background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", color: "#f59e0b", cursor: "pointer", fontSize: "13px", fontWeight: "600" }}>
-                        ⭐ Rate Visit
-                      </button>
-                    )}
-                    {["booked","waiting"].includes(appt.status) && (
-                      <button onClick={() => handleCancel(appt._id)}
-                        style={{ flex: 1, padding: "9px", borderRadius: "8px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#ef4444", cursor: "pointer", fontSize: "13px", fontWeight: "600" }}>
-                        ✕ Cancel
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+        {loading && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "60px", gap: "12px" }}>
+            <span className="spinner spinner-dark" />
+            <span style={{ color: "var(--text-secondary)", fontSize: "14px" }}>Loading appointments...</span>
           </div>
         )}
+
+        {!loading && filtered.length === 0 && (
+          <div style={{ textAlign: "center", padding: "60px 20px", background: "white", borderRadius: "16px", border: "1px solid var(--border)" }}>
+            <div style={{ fontSize: "3rem", marginBottom: "12px" }}>📋</div>
+            <h3 style={{ fontFamily: "'Syne',sans-serif", fontWeight: "700", color: "var(--text-primary)", marginBottom: "8px" }}>
+              {filter === "all" ? "No appointments yet" : `No ${filter} appointments`}
+            </h3>
+            <p style={{ color: "var(--text-secondary)", fontSize: "14px", marginBottom: "20px" }}>
+              Book your first appointment to get started.
+            </p>
+            <Link to="/book" className="btn btn-primary">Book Appointment →</Link>
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+          {filtered.map(appt => (
+            <ApptCard
+              key={appt._id} appt={appt}
+              onCancel={handleCancel}
+              onQR={setQrAppt}
+              onFeedback={id => navigate(`/feedback/${id}`)}
+            />
+          ))}
+        </div>
       </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+
+      {qrAppt && <QRModal appointment={qrAppt} onClose={() => setQrAppt(null)} />}
     </div>
   );
 };

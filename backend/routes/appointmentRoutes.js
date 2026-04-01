@@ -13,19 +13,22 @@ const {
 } = require("../controllers/appointmentController");
 const { verifyToken, isAdmin } = require("../middlewares/authMiddleware");
 
-// Public
+// ── Public routes (no auth needed) ──────────────
 router.get("/queue/:departmentId", getDepartmentQueue);
 router.get("/search",              searchAppointment);
-
-// User (authenticated)
-router.post("/book",               verifyToken, bookAppointment);
-router.post("/checkin",            verifyToken, checkIn);
-router.post("/feedback",           verifyToken, submitFeedback);
-router.get("/my",                  verifyToken, getMyAppointments);
-router.get("/:id",                 verifyToken, getAppointmentById);
-router.patch("/:id/cancel",        verifyToken, cancelAppointment);
-
-// Admin only
-router.get("/all",                 verifyToken, isAdmin, getAllAppointments);
+ 
+// ── Authenticated routes ─────────────────────────
+router.post("/book",     verifyToken, bookAppointment);
+router.post("/checkin",  verifyToken, checkIn);
+router.post("/feedback", verifyToken, submitFeedback);
+router.get("/my",        verifyToken, getMyAppointments);
+ 
+// ✅ FIX: /all MUST come before /:id
+// Otherwise Express treats "all" as a MongoDB ObjectId → crash
+router.get("/all", verifyToken, isAdmin, getAllAppointments);
+ 
+// ── Dynamic :id routes — always last ────────────
+router.get("/:id",          verifyToken, getAppointmentById);
+router.patch("/:id/cancel", verifyToken, cancelAppointment);
 
 module.exports = router;
